@@ -1,0 +1,59 @@
+#!/bin/bash
+##
+## pdebuild-dist
+## It is a wrapper of pdebuild changing pbuilder environment
+## (Debian and Ubuntu) automatically using pbuilder-dist.
+##
+## Copyright (C) 2013 Hajime MIZUNO @ Ubuntu Japanese Team
+##               <https://launchpad.net/~mizuno-as>
+##
+## License: GNU General Public License version 3
+##
+## Requirements:
+##   * pdebuild(1), pbuilder-dist(1)
+
+PBUILDER_HOME=${HOME}/pbuilder
+UBUNTU_MIRROR="http://jp.archive.ubuntu.com/ubuntu"
+DEBIAN_MIRROR="http://ftp.jp.debian.org/debian"
+DIST=""
+DEBBUILDOPTS=""
+MIRROR=""
+IFS=$'\n';
+
+if [ -z $1 ]; then
+  echo "Error: Insufficient number of arguments."
+  echo "Usage: $0 distname [debuildopts]"
+  exit 1;
+fi
+
+for line in $(tail -n +2 /usr/share/distro-info/debian.csv)
+do
+  if [ $1 = $(echo $line | cut -d ',' -f 3) ]; then
+    DIST=$1
+    MIRROR=$DEBIAN_MIRROR
+    break
+  fi
+done
+
+if [ -z $DIST ]; then
+  for line in $(tail -n +2 /usr/share/distro-info/ubuntu.csv)
+  do
+    if [ $1 = $(echo $line | cut -d ',' -f 3) ]; then
+      DIST=$1
+      MIRROR=$UBUNTU_MIRROR
+      break
+    fi
+  done
+fi
+
+if [ -z $DIST ]; then
+  echo "Error: Distribution is incorrect."
+  echo "See: /usr/share/distro-info/{ubuntu,debian}.csv"
+  exit 1;
+fi
+
+shift
+if [ $# -gt 0 ]; then
+  DEBBUILDOPTS="--debbuildopts \"$@\""
+fi
+eval "pdebuild -- --buildresult ${PBUILDER_HOME}/${DIST}_result --basetgz ${PBUILDER_HOME}/${DIST}-base.tgz --logfile ${PBUILDER_HOME}/${DIST}_result/last_operation.log --mirror ${MIRROR} ${DEBBUILDOPTS}"
